@@ -82,7 +82,10 @@ const els = {
   confirmMessage: document.getElementById('admin-confirm-message'),
   confirmClose: document.getElementById('admin-confirm-close'),
   confirmCancel: document.getElementById('admin-confirm-cancel'),
-  confirmOk: document.getElementById('admin-confirm-ok')
+  confirmOk: document.getElementById('admin-confirm-ok'),
+  mailDomainsPanel: document.getElementById('mail-domains-panel'),
+  mailDomainsCount: document.getElementById('mail-domains-count'),
+  mailDomainsRefresh: document.getElementById('mail-domains-refresh')
 };
 
 // 自定义确认对话框
@@ -115,6 +118,78 @@ function initConfirmEvents() {
   });
 }
 initConfirmEvents();
+
+function formatDomainStatus(item) {
+  const status = [item.kind, item.status, item.dns_status].filter(Boolean).join(' / ');
+  const restoreText = item.restore_until ? ` · 自动清理: ${item.restore_until}` : '';
+  return `${status}${restoreText}`;
+}
+
+async function loadMailDomains() {
+  if (!els.mailDomainsPanel) return;
+  els.mailDomainsPanel.innerHTML = '<div class="empty-state"><p>加载域名状态中…</p></div>';
+  try {
+    const data = await getMailDomains();
+    const items = Array.isArray(data?.items) ? data.items : [];
+    if (els.mailDomainsCount) els.mailDomainsCount.textContent = `${items.length} 个`;
+    if (!items.length) {
+      els.mailDomainsPanel.innerHTML = '<div class="empty-state"><p>暂无域名状态</p></div>';
+      return;
+    }
+    els.mailDomainsPanel.innerHTML = items.map((item) => {
+      const canRestore = item.status === 'retired';
+      const canRemove = item.status === 'retired';
+      return `
+        <div class="mailbox-item" data-domain="${item.domain}" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="min-width:0; flex:1;">
+            <div class="address">${item.domain}</div>
+            <div style="font-size:12px; opacity:.72; margin-top:4px; word-break:break-all;">${formatDomainStatus(item)}</div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+            ${canRestore ? '<button class="btn btn-sm" data-action="restore-domain">恢复30分钟</button>' : ''}
+            ${canRemove ? '<button class="btn danger" data-action="remove-domain-dns">删除DNS</button>' : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    els.mailDomainsPanel.querySelectorAll('[data-action="restore-domain"]').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        const domain = e.currentTarget.closest('[data-domain]')?.dataset.domain;
+        if (!domain) return;
+        try {
+          const resp = await restoreMailDomain(domain, 30);
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) throw new Error(data?.error || data?.message || '恢复失败');
+          showToast(data?.remind || '已恢复 MX/TXT 30 分钟', 'success');
+          await loadMailDomains();
+        } catch (err) {
+          showToast(String(err?.message || '恢复失败'), 'error');
+        }
+      });
+    });
+
+    els.mailDomainsPanel.querySelectorAll('[data-action="remove-domain-dns"]').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        const domain = e.currentTarget.closest('[data-domain]')?.dataset.domain;
+        if (!domain) return;
+        const confirmed = await showConfirm(`确定删除 ${domain} 的 MX/TXT 记录？`);
+        if (!confirmed) return;
+        try {
+          const resp = await removeMailDomainDns(domain);
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) throw new Error(data?.error || data?.message || '删除失败');
+          showToast(data?.reason || '已删除 DNS', data?.skipped ? 'warning' : 'success');
+          await loadMailDomains();
+        } catch (err) {
+          showToast(String(err?.message || '删除失败'), 'error');
+        }
+      });
+    });
+  } catch (e) {
+    els.mailDomainsPanel.innerHTML = '<div class="empty-state"><p>加载域名状态失败</p></div>';
+  }
+}
 
 // 加载用户列表
 async function loadUsers() {
@@ -462,6 +537,7 @@ async function handleUnassignMailbox() {
 els.back?.addEventListener('click', () => history.back());
 els.logout?.addEventListener('click', async () => { try { await api('/api/logout', { method: 'POST' }); } catch(_) {} location.replace('/html/login.html'); });
 els.usersRefresh?.addEventListener('click', loadUsers);
+els.mailDomainsRefresh?.addEventListener('click', loadMailDomains);
 els.prevPage?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadUsers(); }});
 els.nextPage?.addEventListener('click', () => { const totalPages = Math.ceil(totalUsers / pageSize); if (currentPage < totalPages) { currentPage++; loadUsers(); }});
 
@@ -507,3 +583,4 @@ els.mailboxesNextPage?.addEventListener('click', () => { const totalPages = Math
 
 // 初始化
 loadUsers();
+loadMailDomains();

@@ -119,6 +119,27 @@ export async function unassignMailbox(username, address) {
   });
 }
 
+export async function getMailDomains() {
+  const r = await api('/api/admin/mail-domains');
+  return r.json();
+}
+
+export async function restoreMailDomain(domain, durationMinutes = 30) {
+  return api('/api/admin/mail-domains/restore-dns', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ domain, durationMinutes })
+  });
+}
+
+export async function removeMailDomainDns(domain) {
+  return api('/api/admin/mail-domains/remove-dns', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ domain })
+  });
+}
+
 export default {
   api,
   getUsers,
@@ -127,5 +148,8 @@ export default {
   deleteUser,
   getUserMailboxes,
   assignMailbox,
-  unassignMailbox
+  unassignMailbox,
+  getMailDomains,
+  restoreMailDomain,
+  removeMailDomainDns
 };
