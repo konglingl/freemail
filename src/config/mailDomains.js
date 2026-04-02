@@ -23,11 +23,6 @@ function buildRotatingLabel(domain, windowKey) {
   return out;
 }
 
-function getRotationWindowKey(env) {
-  const minutes = Math.max(1, Number(env?.AUTO_DOMAIN_ROTATION_MINUTES || 60));
-  return Math.floor(Date.now() / (minutes * 60 * 1000));
-}
-
 function expandDomainWithRotatingMirror(domain, env) {
   const normalized = String(domain || '').trim().toLowerCase();
   if (!normalized) return [];
@@ -54,4 +49,16 @@ export function getAutoDomainPrefix(env) {
 
 export function getAutoRotationEnabled(env) {
   return String(env?.AUTO_ROTATION_ENABLED || '').trim().toLowerCase() === 'true';
+}
+
+export function getRotationWindowKey(env) {
+  const minutes = Math.max(1, Number(env?.AUTO_DOMAIN_ROTATION_MINUTES || 60));
+  return Math.floor(Date.now() / (minutes * 60 * 1000));
+}
+
+export function buildRotatingMirrorDomain(baseDomain, env) {
+  const normalized = String(baseDomain || '').trim().toLowerCase();
+  if (!normalized) return '';
+  const label = buildRotatingLabel(normalized, getRotationWindowKey(env));
+  return `${label}.${normalized}`;
 }

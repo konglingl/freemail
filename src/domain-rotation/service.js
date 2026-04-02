@@ -1,6 +1,6 @@
-import { getRootMailZone, getAutoDomainPrefix, getAutoRotationEnabled } from '../config/mailDomains.js';
+import { getRootMailZone, getAutoDomainPrefix, getAutoRotationEnabled, buildRotatingMirrorDomain } from '../config/mailDomains.js';
 import { normalizeDomain, isSubdomainOfRoot } from './validator.js';
-import { seedMailDomainsFromEnv, getActiveAutoDomain, retireMailDomain, updateMailDomainDnsState, findMailDomain, listExpiredRestoredDomains } from '../db/mailDomains.js';
+import { seedMailDomainsFromEnv, getActiveAutoDomain, retireMailDomain, updateMailDomainDnsState, findMailDomain, listExpiredRestoredDomains, listMailDomainsByKind, upsertMailDomain, getBaseMailDomainsFromEnv } from '../db/mailDomains.js';
 import { createMailDomainDns, deleteMailDomainDns } from './provider.cloudflare.js';
 import { countMailboxesByDomain } from '../db/index.js';
 
@@ -132,13 +132,58 @@ export async function cleanupExpiredRestoredDomains(db, env) {
   return results;
 }
 
+async function rotateMirrorDomainsForAllBases(db, env) {
+  const bases = getBaseMailDomainsFromEnv(env);
+  const activeRotating = await listMailDomainsByKind(db, 'auto', 'active');
+  const activeSet = new Set(activeRotating.map((item) => String(item.domain || '').toLowerCase()));
+  const desired = new Set();
+  const rotated = [];
+
+  for (const baseDomain of bases) {
+    const mirrorDomain = buildRotatingMirrorDomain(baseDomain, env);
+    if (!mirrorDomain) continue;
+    desired.add(mirrorDomain);
+    if (!activeSet.has(mirrorDomain)) {
+      await createMailDomainDns(env, mirrorDomain);
+      const label = mirrorDomain.replace(`.${baseDomain}`, '');
+      await upsertMailDomain(db, {
+        domain: mirrorDomain,
+        label,
+        kind: 'auto',
+        status: 'active',
+        preserve: 0,
+        dnsStatus: 'active'
+      });
+      rotated.push({ base: baseDomain, current: mirrorDomain, created: true });
+    } else {
+      rotated.push({ base: baseDomain, current: mirrorDomain, created: false });
+    }
+  }
+
+  for (const item of activeRotating) {
+    const domain = String(item.domain || '').toLowerCase();
+    if (desired.has(domain)) continue;
+    const mailboxCount = await countMailboxesByDomain(db, domain);
+    if (mailboxCount > 0) {
+      await retireMailDomain(db, domain, { dnsStatus: 'kept_for_mailboxes' });
+    } else {
+      try {
+        await deleteMailDomainDns(env, domain);
+      } catch (_) {}
+      await retireMailDomain(db, domain, { dnsStatus: 'removed' });
+    }
+  }
+
+  return rotated;
+}
+
 export async function runAutoRotationTick(db, env) {
   const cleanup = await cleanupExpiredRestoredDomains(db, env);
   if (!getAutoRotationEnabled(env)) {
     return { skipped: true, reason: 'AUTO_ROTATION_ENABLED=false', cleanup };
   }
-  const rotated = await rotateAutoDomain(db, env);
-  return { ...rotated, cleanup };
+  const rotated = await rotateMirrorDomainsForAllBases(db, env);
+  return { success: true, rotated, cleanup };
 }
 
 export async function addManualMailDomain(db, env, input) {

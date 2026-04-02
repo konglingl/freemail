@@ -1,4 +1,4 @@
-import { parseEnvMailDomains } from '../config/mailDomains.js';
+import { parseEnvMailDomains, getRootMailZone } from '../config/mailDomains.js';
 import { filterAllowedMailboxDomains } from '../domain-rotation/validator.js';
 
 function getLabelFromDomain(domain, rootZone = '') {
@@ -79,8 +79,52 @@ export async function listExpiredRestoredDomains(db) {
   }
 }
 
+export async function listMailDomainsByKind(db, kind, status = '') {
+  try {
+    const sql = status
+      ? `SELECT * FROM mail_domains WHERE kind = ? AND status = ? ORDER BY created_at ASC, id ASC`
+      : `SELECT * FROM mail_domains WHERE kind = ? ORDER BY created_at ASC, id ASC`;
+    const stmt = status ? db.prepare(sql).bind(kind, status) : db.prepare(sql).bind(kind);
+    const { results } = await stmt.all();
+    return results || [];
+  } catch (_) {
+    return [];
+  }
+}
+
+export async function upsertMailDomain(db, { domain, label, kind = 'manual', status = 'active', preserve = 0, dnsStatus = 'active' }) {
+  const normalized = String(domain || '').trim().toLowerCase();
+  if (!normalized) return { created: false, skipped: true };
+  const exists = await findMailDomain(db, normalized);
+  if (exists) {
+    await db.prepare(`
+      UPDATE mail_domains
+      SET label = ?, kind = ?, status = ?, preserve = ?, dns_status = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE domain = ?
+    `).bind(label, kind, status, preserve, dnsStatus, normalized).run();
+    return { created: false, updated: true, domain: normalized };
+  }
+  await db.prepare(`
+    INSERT INTO mail_domains (domain, label, kind, status, preserve, dns_status)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(normalized, label, kind, status, preserve, dnsStatus).run();
+  return { created: true, updated: false, domain: normalized };
+}
+
+export function getBaseMailDomainsFromEnv(env) {
+  const rootZone = getRootMailZone(env);
+  const expanded = filterAllowedMailboxDomains(parseEnvMailDomains(env), env);
+  return expanded.filter((domain) => {
+    if (!rootZone) return true;
+    const suffix = `.${rootZone}`;
+    if (!domain.endsWith(suffix)) return false;
+    const label = domain.slice(0, -suffix.length);
+    return !label.includes('.');
+  });
+}
+
 export async function seedMailDomainsFromEnv(db, env) {
-  const domains = filterAllowedMailboxDomains(parseEnvMailDomains(env), env);
+  const domains = getBaseMailDomainsFromEnv(env);
   if (!domains.length) return { inserted: 0, skipped: 0 };
 
   let inserted = 0;
