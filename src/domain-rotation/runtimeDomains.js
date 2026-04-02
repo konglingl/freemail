@@ -4,6 +4,6 @@ import { filterAllowedMailboxDomains } from './validator.js';
 
 export async function getRuntimeMailDomains(db, env) {
   const dbDomains = filterAllowedMailboxDomains(await listActiveMailDomains(db), env);
-  if (dbDomains.length) return dbDomains;
-  return filterAllowedMailboxDomains(parseEnvMailDomains(env), env);
+  const envDomains = filterAllowedMailboxDomains(parseEnvMailDomains(env), env);
+  return [...new Set([...dbDomains, ...envDomains])];
 }

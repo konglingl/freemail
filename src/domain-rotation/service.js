@@ -91,24 +91,24 @@ export async function rotateAutoDomain(db, env, customLabel = '') {
   return { success: true, domain, previous: previous?.domain || null, item: created?.results?.[0] || null };
 }
 
-export async function restoreMailDomainDns(db, env, domain, durationMinutes = 60) {
+export async function restoreMailDomainDns(db, env, domain, durationMinutes = 30) {
   const item = await findMailDomain(db, domain);
   if (!item) throw new Error('域名不存在');
-  if (item.kind !== 'auto' || item.status !== 'retired') {
-    throw new Error('仅支持恢复 retired auto 域名');
+  if (item.status !== 'retired') {
+    throw new Error('仅支持恢复 retired 域名');
   }
 
   await createMailDomainDns(env, item.domain);
-  const restoreUntil = new Date(Date.now() + Math.max(1, Number(durationMinutes || 60)) * 60 * 1000).toISOString();
+  const restoreUntil = new Date(Date.now() + Math.max(1, Number(durationMinutes || 30)) * 60 * 1000).toISOString();
   await updateMailDomainDnsState(db, item.domain, 'restored_temporarily', restoreUntil);
-  return { success: true, domain: item.domain, restore_until: restoreUntil };
+  return { success: true, domain: item.domain, restore_until: restoreUntil, remind: `请在 ${durationMinutes || 30} 分钟内收取旧邮箱邮件，之后系统将自动尝试移除 MX/TXT 记录` };
 }
 
 export async function removeMailDomainDns(db, env, domain) {
   const item = await findMailDomain(db, domain);
   if (!item) throw new Error('域名不存在');
-  if (item.kind !== 'auto' || item.status !== 'retired') {
-    throw new Error('仅支持移除 retired auto 域名的 DNS');
+  if (item.status !== 'retired') {
+    throw new Error('仅支持移除 retired 域名的 DNS');
   }
 
   const mailboxCount = await countMailboxesByDomain(db, item.domain);

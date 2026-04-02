@@ -49,7 +49,7 @@ export async function handleMailDomainAdminApi(request, db, env, url, path, opti
     try {
       const body = await request.json();
       const domain = body?.domain || '';
-      const durationMinutes = body?.durationMinutes || body?.duration_minutes || 60;
+      const durationMinutes = body?.durationMinutes || body?.duration_minutes || 30;
       const result = await restoreMailDomainDns(db, env, domain, durationMinutes);
       return jsonResponse(result, 200);
     } catch (error) {

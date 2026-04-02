@@ -12,9 +12,9 @@ function hashString(input) {
   return hash >>> 0;
 }
 
-function buildStableRandomLabel(domain) {
+function buildRotatingLabel(domain, windowKey) {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let n = hashString(domain);
+  let n = hashString(`${windowKey}:${domain}`);
   let out = '';
   for (let i = 0; i < 4; i += 1) {
     out += chars[n % chars.length];
@@ -23,10 +23,15 @@ function buildStableRandomLabel(domain) {
   return out;
 }
 
-function expandDomainWithMirror(domain) {
+function getRotationWindowKey(env) {
+  const minutes = Math.max(1, Number(env?.AUTO_DOMAIN_ROTATION_MINUTES || 60));
+  return Math.floor(Date.now() / (minutes * 60 * 1000));
+}
+
+function expandDomainWithRotatingMirror(domain, env) {
   const normalized = String(domain || '').trim().toLowerCase();
   if (!normalized) return [];
-  const label = buildStableRandomLabel(normalized);
+  const label = buildRotatingLabel(normalized, getRotationWindowKey(env));
   return [normalized, `${label}.${normalized}`];
 }
 
@@ -36,7 +41,7 @@ export function parseEnvMailDomains(env) {
     .map((d) => d.trim().toLowerCase())
     .filter(Boolean);
 
-  return [...new Set(rawDomains.flatMap(expandDomainWithMirror))];
+  return [...new Set(rawDomains.flatMap((domain) => expandDomainWithRotatingMirror(domain, env)))];
 }
 
 export function isRootZoneConfigured(env) {
