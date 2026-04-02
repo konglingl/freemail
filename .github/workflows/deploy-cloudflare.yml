@@ -1,0 +1,104 @@
+name: 🚀 Deploy freemail to Cloudflare Workers
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "wrangler.toml"
+      - "README.md"
+  workflow_dispatch:
+
+jobs:
+  Deploy-freemail:
+    name: 🏗️ Build and Deploy
+    runs-on: ubuntu-latest
+
+    env:
+      NAME: ${{ secrets.NAME || vars.NAME || 'mailfree' }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID || vars.D1_DATABASE_ID }}
+      D1_DB_NAME: ${{ secrets.D1_DB_NAME || vars.D1_DB_NAME || 'mail_free_db' }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME || vars.R2_BUCKET_NAME || 'mail-eml' }}
+      ADMIN_NAME: ${{ secrets.ADMIN_NAME || vars.ADMIN_NAME || 'admin' }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD || vars.ADMIN_PASSWORD }}
+      JWT_TOKEN: ${{ secrets.JWT_TOKEN || vars.JWT_TOKEN }}
+      SESSION_EXPIRE_DAYS: ${{ secrets.SESSION_EXPIRE_DAYS || vars.SESSION_EXPIRE_DAYS || '365' }}
+      MAIL_DOMAIN: ${{ secrets.MAIL_DOMAIN || vars.MAIL_DOMAIN }}
+      ROOT_MAIL_ZONE: ${{ secrets.ROOT_MAIL_ZONE || vars.ROOT_MAIL_ZONE }}
+      AUTO_ROTATION_ENABLED: ${{ secrets.AUTO_ROTATION_ENABLED || vars.AUTO_ROTATION_ENABLED || 'false' }}
+      AUTO_DOMAIN_PREFIX: ${{ secrets.AUTO_DOMAIN_PREFIX || vars.AUTO_DOMAIN_PREFIX || 'auto' }}
+      CF_ZONE_ID: ${{ secrets.CF_ZONE_ID || vars.CF_ZONE_ID }}
+
+    steps:
+      - name: 🚚 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 📦 Install Wrangler
+        run: npm install -g wrangler
+
+      - name: 📡 Disable wrangler telemetry
+        run: wrangler telemetry disable
+
+      - name: 🔐 Validate required variables
+        run: |
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "❌ CLOUDFLARE_API_TOKEN is required."; exit 1; }
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "❌ CLOUDFLARE_ACCOUNT_ID is required."; exit 1; }
+          echo "✅ Validation passed."
+
+      - name: 🛠️ Generate wrangler config
+        run: |
+          CONFIG_FILE="wrangler-deploy.toml"
+          cp wrangler.toml "$CONFIG_FILE"
+          sed -i "s|^name = .*|name = \"${NAME}\"|" "$CONFIG_FILE"
+          sed -i 's/^[[:space:]]*database_id = .*/database_id = "PLACEHOLDER_D1_ID"/' "$CONFIG_FILE"
+          sed -i "s/^[[:space:]]*database_name = .*/database_name = \"${D1_DB_NAME}\"/" "$CONFIG_FILE"
+          sed -i "s/^[[:space:]]*bucket_name = .*/bucket_name = \"${R2_BUCKET_NAME}\"/" "$CONFIG_FILE"
+          [ -n "$ADMIN_NAME" ] && sed -i "s|^ADMIN_NAME = .*|ADMIN_NAME = \"${ADMIN_NAME}\"|" "$CONFIG_FILE"
+          [ -n "$MAIL_DOMAIN" ] && sed -i "s|^MAIL_DOMAIN = .*|MAIL_DOMAIN = \"${MAIL_DOMAIN}\"|" "$CONFIG_FILE"
+          [ -n "$ROOT_MAIL_ZONE" ] && sed -i "s|^ROOT_MAIL_ZONE = .*|ROOT_MAIL_ZONE = \"${ROOT_MAIL_ZONE}\"|" "$CONFIG_FILE"
+          [ -n "$AUTO_ROTATION_ENABLED" ] && sed -i "s|^AUTO_ROTATION_ENABLED = .*|AUTO_ROTATION_ENABLED = \"${AUTO_ROTATION_ENABLED}\"|" "$CONFIG_FILE"
+          [ -n "$AUTO_DOMAIN_PREFIX" ] && sed -i "s|^AUTO_DOMAIN_PREFIX = .*|AUTO_DOMAIN_PREFIX = \"${AUTO_DOMAIN_PREFIX}\"|" "$CONFIG_FILE"
+          [ -n "$CF_ZONE_ID" ] && sed -i "s|^# CF_ZONE_ID = .*|CF_ZONE_ID = \"${CF_ZONE_ID}\"|" "$CONFIG_FILE" || true
+          echo "✅ Config generated."
+
+      - name: 🐬 Set up D1 database
+        run: |
+          CONFIG_FILE="wrangler-deploy.toml"
+          if [ -n "$D1_DATABASE_ID" ]; then
+            sed -i "s|PLACEHOLDER_D1_ID|${D1_DATABASE_ID}|g" "$CONFIG_FILE"
+            exit 0
+          fi
+          DB_LIST=$(wrangler d1 list --json)
+          if echo "$DB_LIST" | jq -e ".[] | select(.name == \"${D1_DB_NAME}\")" >/dev/null 2>&1; then
+            D1_ID=$(echo "$DB_LIST" | jq -r ".[] | select(.name == \"${D1_DB_NAME}\") | .uuid")
+          else
+            wrangler d1 create "${D1_DB_NAME}"
+            DB_LIST=$(wrangler d1 list --json)
+            D1_ID=$(echo "$DB_LIST" | jq -r ".[] | select(.name == \"${D1_DB_NAME}\") | .uuid")
+          fi
+          sed -i "s|PLACEHOLDER_D1_ID|$D1_ID|g" "$CONFIG_FILE"
+
+      - name: 📦 Set up R2 bucket
+        run: |
+          if ! wrangler r2 bucket list | grep -q "${R2_BUCKET_NAME}"; then
+            wrangler r2 bucket create "${R2_BUCKET_NAME}"
+          fi
+
+      - name: 🗄️ Initialize D1 database tables
+        run: |
+          CONFIG_FILE="wrangler-deploy.toml"
+          if [ -f "d1-init.sql" ]; then
+            wrangler d1 execute "${D1_DB_NAME}" -c "$CONFIG_FILE" --file=d1-init.sql --remote
+          fi
+
+      - name: 🚀 Deploy
+        run: |
+          wrangler deploy -c wrangler-deploy.toml

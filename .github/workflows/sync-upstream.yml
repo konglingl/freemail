@@ -1,0 +1,30 @@
+name: 🔄 Sync with Upstream
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync_with_upstream:
+    name: 🔄 Sync master with upstream latest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🚚 Checkout target repo
+        uses: actions/checkout@v4
+
+      - name: 🔄 Sync Upstream
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
+        with:
+          upstream_sync_repo: idinging/freemail
+          upstream_sync_branch: master
+          target_sync_branch: master
+          target_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          test_mode: false
+
+      - name: ❌ Check for Failure
+        if: failure()
+        run: |
+          echo "❌ 同步失败，通常是上游与当前 fork 在核心文件上发生冲突。"
+          echo "请在本地拉取仓库并手动解决冲突后再次推送。"
