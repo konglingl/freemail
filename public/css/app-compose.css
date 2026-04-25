@@ -405,3 +405,8 @@
 .pager-row{ display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap; width:100%; }
 .pager-row-secondary{ gap:10px; }
 .pager-current-info{ min-width:140px; text-align:center; font-weight:600; }
+
+.nowrap-row{ flex-wrap:nowrap; }
+.pager-stack-compact .compact-btn{ min-width:72px; padding:0 12px; }
+.pager-stack-compact .compact-page-info{ min-width:96px; font-size:13px; }
+.pager-stack-compact .pager-row-secondary{ justify-content:center; }

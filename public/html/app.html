@@ -78,11 +78,11 @@
       </div>
       <div id="mb-list"></div>
       <div id="mb-loading" style="margin-top:12px"></div>
-      <div id="mb-pager" class="pager pager-stack" style="display:none;margin-top:16px">
-        <div class="pager-row">
-          <button id="mb-prev" class="btn btn-ghost btn-sm">上一页</button>
-          <span id="mb-page-info" class="muted pager-current-info"></span>
-          <button id="mb-next" class="btn btn-ghost btn-sm">下一页</button>
+      <div id="mb-pager" class="pager pager-stack pager-stack-compact" style="display:none;margin-top:16px">
+        <div class="pager-row pager-row-primary nowrap-row">
+          <button id="mb-prev" class="btn btn-ghost btn-sm compact-btn">上一页</button>
+          <span id="mb-page-info" class="muted pager-current-info compact-page-info"></span>
+          <button id="mb-next" class="btn btn-ghost btn-sm compact-btn">下一页</button>
         </div>
         <div class="pager-row pager-row-secondary">
           <div class="pager-jump">
@@ -90,6 +90,14 @@
             <button id="mb-page-jump-btn" class="btn btn-ghost btn-sm" type="button">跳转</button>
           </div>
           <button id="mb-export-page" class="btn btn-ghost btn-sm" type="button">导出当前页</button>
+        </div>
+        <div class="pager-row pager-row-secondary">
+          <div class="pager-range-export">
+            <input id="mb-export-start-page" type="number" min="1" step="1" class="pager-jump-input" placeholder="开始页" />
+            <span class="muted">到</span>
+            <input id="mb-export-end-page" type="number" min="1" step="1" class="pager-jump-input" placeholder="结束页" />
+            <button id="mb-export-range-btn" class="btn btn-ghost btn-sm" type="button">导出范围</button>
+          </div>
         </div>
       </div>
     </div>

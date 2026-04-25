@@ -50,7 +50,7 @@ const els = {
   modalSubject: document.getElementById('modal-subject'), modalContent: document.getElementById('modal-content'),
   mbList: document.getElementById('mb-list'), mbSearch: document.getElementById('mb-search'), mbLoading: document.getElementById('mb-loading'),
   toast: document.getElementById('toast'), mbPager: document.getElementById('mb-pager'), mbPrev: document.getElementById('mb-prev'),
-  mbNext: document.getElementById('mb-next'), mbPageInfo: document.getElementById('mb-page-info'), mbPageJumpInput: document.getElementById('mb-page-jump-input'), mbPageJumpBtn: document.getElementById('mb-page-jump-btn'), mbExportPage: document.getElementById('mb-export-page'), listLoading: document.getElementById('list-status'),
+  mbNext: document.getElementById('mb-next'), mbPageInfo: document.getElementById('mb-page-info'), mbPageJumpInput: document.getElementById('mb-page-jump-input'), mbPageJumpBtn: document.getElementById('mb-page-jump-btn'), mbExportPage: document.getElementById('mb-export-page'), mbExportStartPage: document.getElementById('mb-export-start-page'), mbExportEndPage: document.getElementById('mb-export-end-page'), mbExportRangeBtn: document.getElementById('mb-export-range-btn'), listLoading: document.getElementById('list-status'),
   confirmModal: document.getElementById('confirm-modal'), confirmClose: document.getElementById('confirm-close'),
   confirmMessage: document.getElementById('confirm-message'), confirmCancel: document.getElementById('confirm-cancel'), confirmOk: document.getElementById('confirm-ok'),
   emailActions: document.getElementById('email-actions'), toggleCustom: document.getElementById('toggle-custom'),
@@ -146,6 +146,23 @@ function exportAddresses(addresses, filename) {
   showToast(`已导出 ${lines.length} 个邮箱`, 'success');
 }
 
+async function exportHistoryPageRange(startPage, endPage) {
+  const totalPages = Math.max(1, Math.ceil(getLastCount() / getPageSize()));
+  const start = Math.max(1, Math.min(totalPages, Number(startPage || 1)));
+  const end = Math.max(start, Math.min(totalPages, Number(endPage || start)));
+  const all = [];
+  for (let p = start; p <= end; p++) {
+    let url = `/api/mailboxes?page=${p}&size=${getPageSize()}`;
+    const search = getSearchTerm();
+    if (search) url += `&q=${encodeURIComponent(search)}`;
+    const r = await api(url);
+    const data = await r.json();
+    const list = Array.isArray(data) ? data : (data.list || []);
+    all.push(...list.map(m => m.address).filter(Boolean));
+  }
+  exportAddresses(all, `mailboxes-history-pages-${start}-to-${end}.txt`);
+}
+
 window.selectMailbox = (addr) => selectMailboxAddress(addr, els, api, refresh, autoRefreshCallback, updateMailboxInfoUI);
 window.togglePin = (e, addr) => toggleMailboxPin(e, addr, api, showToast, loadMailboxes);
 window.deleteMailbox = (e, addr) => deleteMailboxAddress(e, addr, els, api, showToast, showConfirm, loadMailboxes);
@@ -234,3 +251,12 @@ initCompose(els, api, showToast);
 
   initVisibilityTracking();
 })();
+
+if (els.mbExportRangeBtn) els.mbExportRangeBtn.onclick = async () => {
+  try {
+    await exportHistoryPageRange(Number(els.mbExportStartPage?.value || getCurrentPage()), Number(els.mbExportEndPage?.value || getCurrentPage()));
+  } catch (e) {
+    console.error('历史邮箱范围导出失败:', e);
+    showToast('历史邮箱范围导出失败', 'error');
+  }
+};
