@@ -106,11 +106,11 @@
           <div class="empty-icon">📭</div>
           <div class="empty-title">暂无数据</div>
         </div>
-        <div class="pager pager-stack">
-          <div class="pager-row">
-            <button id="prev" class="btn btn-ghost btn-sm">上一页</button>
-            <span id="page" class="muted pager-current-info"></span>
-            <button id="next" class="btn btn-ghost btn-sm">下一页</button>
+        <div class="pager pager-stack pager-stack-compact">
+          <div class="pager-row pager-row-primary nowrap-row">
+            <button id="prev" class="btn btn-ghost btn-sm compact-btn">上一页</button>
+            <span id="page" class="muted pager-current-info compact-page-info"></span>
+            <button id="next" class="btn btn-ghost btn-sm compact-btn">下一页</button>
           </div>
           <div class="pager-row pager-row-secondary">
             <div class="pager-jump">
@@ -118,6 +118,8 @@
               <button id="page-jump-btn" class="btn btn-ghost btn-sm" type="button">跳转</button>
             </div>
             <button id="export-page" class="btn btn-ghost btn-sm" type="button">导出当前页邮箱</button>
+          </div>
+          <div class="pager-row pager-row-secondary">
             <div class="pager-range-export">
               <input id="export-start-page" type="number" min="1" step="1" class="pager-jump-input" placeholder="开始页" />
               <span class="muted">到</span>
