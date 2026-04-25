@@ -400,6 +400,10 @@
 /* 让切换自定义按钮与随机按钮同样大小 */
 .generate-action{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
 .generate-action .btn{ height:52px; padding:0 20px; font-size:16px; border-radius: var(--radius-sm); flex:1 1 220px; justify-content:center; text-align:center; }
+.batch-generate-controls{ display:flex; gap:10px; align-items:center; }
+.batch-count-input{ width:120px; min-width:120px; height:48px; text-align:center; font-size:16px; font-weight:600; }
+.batch-generate-btn{ flex:1; min-height:48px; }
+.config-hint{ font-size:12px; line-height:1.5; color:var(--text-muted); }
 
 .email-display.has-email{
   border-style: solid;
