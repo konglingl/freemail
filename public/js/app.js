@@ -13,7 +13,7 @@ import { showConfirm } from './modules/app/confirm-dialog.js';
 import { startAutoRefresh, stopAutoRefresh, initVisibilityTracking } from './modules/app/auto-refresh.js';
 import { getCurrentMailbox, setCurrentMailbox, loadCurrentMailbox, clearCurrentMailbox, setCurrentMailboxInfo, getCurrentMailboxInfo } from './modules/app/mailbox-state.js';
 import { renderPager, sliceByPage, prevPage, nextPage, resetPager, setView, isSentViewActive, renderEmailItem, markViewLoaded, isFirstLoad } from './modules/app/email-list.js';
-import { renderMailboxList, renderMbPager, getCurrentPage, setCurrentPage, getPageSize, prevMbPage, nextMbPage, resetMbPage, setSearchTerm, getSearchTerm, setLoading, isLoadingMailboxes, setLastCount, getLastCount } from './modules/app/mailbox-list.js';
+import { renderMailboxList, renderMbPager, getCurrentPage, setCurrentPage, getPageSize, prevMbPage, nextMbPage, jumpMbPage, resetMbPage, setSearchTerm, getSearchTerm, setLoading, isLoadingMailboxes, setLastCount, getLastCount } from './modules/app/mailbox-list.js';
 import { initSessionFromCache, validateSession, isGuest, isAdmin, applySessionUI, initGuestMode } from './modules/app/session.js';
 import { loadDomains, getStoredLength, saveLength, updateRangeProgress, getSelectedDomainIndex, populateDomains, STORAGE_KEYS } from './modules/app/domains.js';
 import { initCompose, showSentEmailDetail } from './modules/app/compose.js';
@@ -50,7 +50,7 @@ const els = {
   modalSubject: document.getElementById('modal-subject'), modalContent: document.getElementById('modal-content'),
   mbList: document.getElementById('mb-list'), mbSearch: document.getElementById('mb-search'), mbLoading: document.getElementById('mb-loading'),
   toast: document.getElementById('toast'), mbPager: document.getElementById('mb-pager'), mbPrev: document.getElementById('mb-prev'),
-  mbNext: document.getElementById('mb-next'), mbPageInfo: document.getElementById('mb-page-info'), listLoading: document.getElementById('list-status'),
+  mbNext: document.getElementById('mb-next'), mbPageInfo: document.getElementById('mb-page-info'), mbPageJumpInput: document.getElementById('mb-page-jump-input'), mbPageJumpBtn: document.getElementById('mb-page-jump-btn'), mbExportPage: document.getElementById('mb-export-page'), listLoading: document.getElementById('list-status'),
   confirmModal: document.getElementById('confirm-modal'), confirmClose: document.getElementById('confirm-close'),
   confirmMessage: document.getElementById('confirm-message'), confirmCancel: document.getElementById('confirm-cancel'), confirmOk: document.getElementById('confirm-ok'),
   emailActions: document.getElementById('email-actions'), toggleCustom: document.getElementById('toggle-custom'),
@@ -130,6 +130,22 @@ function updateMailboxInfoUI(info) {
   }
 }
 
+function exportAddresses(addresses, filename) {
+  const lines = (addresses || []).filter(Boolean);
+  if (!lines.length) { showToast('当前页没有可导出的邮箱', 'warn'); return; }
+  const text = lines.join('\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast(`已导出 ${lines.length} 个邮箱`, 'success');
+}
+
 window.selectMailbox = (addr) => selectMailboxAddress(addr, els, api, refresh, autoRefreshCallback, updateMailboxInfoUI);
 window.togglePin = (e, addr) => toggleMailboxPin(e, addr, api, showToast, loadMailboxes);
 window.deleteMailbox = (e, addr) => deleteMailboxAddress(e, addr, els, api, showToast, showConfirm, loadMailboxes);
@@ -160,6 +176,13 @@ if (els.prevPage) els.prevPage.onclick = () => prevPage(refresh);
 if (els.nextPage) els.nextPage.onclick = () => nextPage(refresh);
 if (els.mbPrev) els.mbPrev.onclick = () => prevMbPage(loadMailboxes);
 if (els.mbNext) els.mbNext.onclick = () => nextMbPage(loadMailboxes, getLastCount());
+
+if (els.mbPageJumpBtn) els.mbPageJumpBtn.onclick = () => jumpMbPage(loadMailboxes, Number(els.mbPageJumpInput?.value || 1), getLastCount());
+if (els.mbPageJumpInput) els.mbPageJumpInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') jumpMbPage(loadMailboxes, Number(els.mbPageJumpInput?.value || 1), getLastCount()); });
+if (els.mbExportPage) els.mbExportPage.onclick = () => {
+  const addrs = Array.from(document.querySelectorAll('#mb-list .mailbox-item .address')).map(el => (el.textContent || '').trim()).filter(Boolean);
+  exportAddresses(addrs, `mailboxes-history-page-${getCurrentPage()}.txt`);
+};
 
 if (els.mbSearch) { let t = null; els.mbSearch.oninput = () => { if (t) clearTimeout(t); t = setTimeout(() => { setSearchTerm(els.mbSearch.value); resetMbPage(); loadMailboxes(); }, 300); };}
 

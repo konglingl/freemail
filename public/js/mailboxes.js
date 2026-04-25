@@ -23,6 +23,9 @@ const els = {
   prev: document.getElementById('prev'),
   next: document.getElementById('next'),
   page: document.getElementById('page'),
+  pageJumpInput: document.getElementById('page-jump-input'),
+  pageJumpBtn: document.getElementById('page-jump-btn'),
+  exportPage: document.getElementById('export-page'),
   logout: document.getElementById('logout'),
   viewGrid: document.getElementById('view-grid'),
   viewList: document.getElementById('view-list'),
@@ -72,6 +75,31 @@ let currentView = localStorage.getItem('mf:mailboxes:view') || 'grid';
 let searchTimeout = null, isLoading = false;
 let availableDomains = [];
 
+function exportAddresses(addresses, filename) {
+  const lines = (addresses || []).filter(Boolean);
+  if (!lines.length) { showToast('当前页没有可导出的邮箱', 'warn'); return; }
+  const text = lines.join('\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast(`已导出 ${lines.length} 个邮箱`, 'success');
+}
+
+function jumpPage(target) {
+  const totalPages = Math.max(1, Math.ceil(lastCount / PAGE_SIZE));
+  const nextPageNum = Math.max(1, Math.min(totalPages, Number(target || 1)));
+  if (nextPageNum !== page) {
+    page = nextPageNum;
+    load();
+  }
+}
+
 // 加载邮箱列表
 async function load() {
   if (isLoading) return;
@@ -120,6 +148,7 @@ function updatePager() {
   if (els.page) els.page.textContent = `第 ${page} / ${totalPages} 页 (共 ${lastCount} 个)`;
   if (els.prev) els.prev.disabled = page <= 1;
   if (els.next) els.next.disabled = page >= totalPages;
+  if (els.pageJumpInput) { els.pageJumpInput.value = String(page); els.pageJumpInput.max = String(totalPages); }
 }
 
 // 绑定卡片事件
