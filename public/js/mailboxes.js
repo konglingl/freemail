@@ -751,3 +751,10 @@ async function initGuestMode() {
   await loadDomainsFilter();
   await load();
 })();
+
+
+els.prev?.addEventListener('click', () => { if (page > 1) { page -= 1; load(); }});
+els.next?.addEventListener('click', () => { const totalPages = Math.max(1, Math.ceil(lastCount / PAGE_SIZE)); if (page < totalPages) { page += 1; load(); }});
+els.pageJumpBtn?.addEventListener('click', () => jumpPage(Number(els.pageJumpInput?.value || 1)));
+els.pageJumpInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') jumpPage(Number(els.pageJumpInput?.value || 1)); });
+els.exportPage?.addEventListener('click', () => exportAddresses(currentData.map(m => m.address).filter(Boolean), `mailboxes-page-${page}.txt`));
