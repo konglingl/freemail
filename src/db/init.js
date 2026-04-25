@@ -108,22 +108,7 @@ async function createMailDomainIndexes(db) {
 }
 
 async function ensureMailDomainsTable(db) {
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS mail_domains (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      domain TEXT NOT NULL UNIQUE,
-      label TEXT NOT NULL,
-      kind TEXT NOT NULL CHECK(kind IN ('manual', 'auto')),
-      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'retired', 'failed')),
-      preserve INTEGER NOT NULL DEFAULT 0,
-      dns_status TEXT NOT NULL DEFAULT 'active',
-      restore_until TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      retired_at TEXT,
-      last_error TEXT
-    );
-  `);
+  await db.exec("CREATE TABLE IF NOT EXISTS mail_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, domain TEXT NOT NULL UNIQUE, label TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('manual', 'auto')), status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'retired', 'failed')), preserve INTEGER NOT NULL DEFAULT 0, dns_status TEXT NOT NULL DEFAULT 'active', restore_until TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, retired_at TEXT, last_error TEXT);");
 }
 
 async function migrateMailDomainsFields(db) {
