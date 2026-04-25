@@ -150,17 +150,39 @@ async function exportHistoryPageRange(startPage, endPage) {
   const totalPages = Math.max(1, Math.ceil(getLastCount() / getPageSize()));
   const start = Math.max(1, Math.min(totalPages, Number(startPage || 1)));
   const end = Math.max(start, Math.min(totalPages, Number(endPage || start)));
-  const all = [];
-  for (let p = start; p <= end; p++) {
-    let url = `/api/mailboxes?page=${p}&size=${getPageSize()}`;
-    const search = getSearchTerm();
-    if (search) url += `&q=${encodeURIComponent(search)}`;
-    const r = await api(url);
-    const data = await r.json();
-    const list = Array.isArray(data) ? data : (data.list || []);
-    all.push(...list.map(m => m.address).filter(Boolean));
+  const pages = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  const batchSize = 4;
+  let done = 0;
+  const originalText = els.mbExportRangeBtn?.textContent || '导出范围';
+  if (els.mbExportRangeBtn) els.mbExportRangeBtn.disabled = true;
+  const pageResults = new Map();
+  try {
+    for (let i = 0; i < pages.length; i += batchSize) {
+      const chunk = pages.slice(i, i + batchSize);
+      const chunkResults = await Promise.all(chunk.map(async (p) => {
+        let url = `/api/mailboxes?page=${p}&size=${getPageSize()}`;
+        const search = getSearchTerm();
+        if (search) url += `&q=${encodeURIComponent(search)}`;
+        const r = await api(url);
+        const data = await r.json();
+        const list = Array.isArray(data) ? data : (data.list || []);
+        return { page: p, addresses: list.map(m => m.address).filter(Boolean) };
+      }));
+      for (const item of chunkResults) {
+        pageResults.set(item.page, item.addresses);
+        done += 1;
+        if (els.mbExportRangeBtn) els.mbExportRangeBtn.textContent = `导出中 ${done}/${pages.length}`;
+      }
+    }
+    const all = [];
+    for (const p of pages) all.push(...(pageResults.get(p) || []));
+    exportAddresses(all, `mailboxes-history-pages-${start}-to-${end}.txt`);
+  } finally {
+    if (els.mbExportRangeBtn) {
+      els.mbExportRangeBtn.disabled = false;
+      els.mbExportRangeBtn.textContent = originalText;
+    }
   }
-  exportAddresses(all, `mailboxes-history-pages-${start}-to-${end}.txt`);
 }
 
 window.selectMailbox = (addr) => selectMailboxAddress(addr, els, api, refresh, autoRefreshCallback, updateMailboxInfoUI);

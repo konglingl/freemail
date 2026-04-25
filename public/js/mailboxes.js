@@ -107,19 +107,41 @@ async function exportPageRange(startPage, endPage) {
   const totalPages = Math.max(1, Math.ceil(lastCount / PAGE_SIZE));
   const start = Math.max(1, Math.min(totalPages, Number(startPage || 1)));
   const end = Math.max(start, Math.min(totalPages, Number(endPage || start)));
-  const all = [];
-  for (let p = start; p <= end; p++) {
-    const params = { page: p, size: PAGE_SIZE };
-    if (els.q?.value) params.q = els.q.value.trim();
-    if (els.domainFilter?.value) params.domain = els.domainFilter.value;
-    if (els.loginFilter?.value) params.login = els.loginFilter.value;
-    if (els.favoriteFilter?.value) params.favorite = els.favoriteFilter.value;
-    if (els.forwardFilter?.value) params.forward = els.forwardFilter.value;
-    const data = await fetchMailboxes(params);
-    const list = Array.isArray(data) ? data : (data.list || []);
-    all.push(...list.map(m => m.address).filter(Boolean));
+  const pages = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  const batchSize = 4;
+  let done = 0;
+  const originalText = els.exportRangeBtn?.textContent || '导出范围';
+  if (els.exportRangeBtn) els.exportRangeBtn.disabled = true;
+  const pageResults = new Map();
+  try {
+    for (let i = 0; i < pages.length; i += batchSize) {
+      const chunk = pages.slice(i, i + batchSize);
+      const chunkResults = await Promise.all(chunk.map(async (p) => {
+        const params = { page: p, size: PAGE_SIZE };
+        if (els.q?.value) params.q = els.q.value.trim();
+        if (els.domainFilter?.value) params.domain = els.domainFilter.value;
+        if (els.loginFilter?.value) params.login = els.loginFilter.value;
+        if (els.favoriteFilter?.value) params.favorite = els.favoriteFilter.value;
+        if (els.forwardFilter?.value) params.forward = els.forwardFilter.value;
+        const data = await fetchMailboxes(params);
+        const list = Array.isArray(data) ? data : (data.list || []);
+        return { page: p, addresses: list.map(m => m.address).filter(Boolean) };
+      }));
+      for (const item of chunkResults) {
+        pageResults.set(item.page, item.addresses);
+        done += 1;
+        if (els.exportRangeBtn) els.exportRangeBtn.textContent = `导出中 ${done}/${pages.length}`;
+      }
+    }
+    const all = [];
+    for (const p of pages) all.push(...(pageResults.get(p) || []));
+    exportAddresses(all, `mailboxes-pages-${start}-to-${end}.txt`);
+  } finally {
+    if (els.exportRangeBtn) {
+      els.exportRangeBtn.disabled = false;
+      els.exportRangeBtn.textContent = originalText;
+    }
   }
-  exportAddresses(all, `mailboxes-pages-${start}-to-${end}.txt`);
 }
 
 // 加载邮箱列表
