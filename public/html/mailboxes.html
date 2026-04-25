@@ -66,7 +66,6 @@
               </label>
               <span id="selected-count" class="muted" style="font-size:13px;">已选 0 项</span>
               <button id="clear-selection" class="btn btn-ghost btn-sm" type="button">清空选择</button>
-              <button id="export-page" class="btn btn-ghost btn-sm" type="button">导出当前页邮箱</button>
             </div>
             <div class="batch-actions">
               <button id="batch-allow" class="btn btn-ghost btn-sm" title="批量放行邮箱登录">
@@ -119,6 +118,12 @@
               <button id="page-jump-btn" class="btn btn-ghost btn-sm" type="button">跳转</button>
             </div>
             <button id="export-page" class="btn btn-ghost btn-sm" type="button">导出当前页邮箱</button>
+            <div class="pager-range-export">
+              <input id="export-start-page" type="number" min="1" step="1" class="pager-jump-input" placeholder="开始页" />
+              <span class="muted">到</span>
+              <input id="export-end-page" type="number" min="1" step="1" class="pager-jump-input" placeholder="结束页" />
+              <button id="export-range-btn" class="btn btn-ghost btn-sm" type="button">导出范围</button>
+            </div>
           </div>
         </div>
       </div>

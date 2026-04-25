@@ -26,6 +26,9 @@ const els = {
   pageJumpInput: document.getElementById('page-jump-input'),
   pageJumpBtn: document.getElementById('page-jump-btn'),
   exportPage: document.getElementById('export-page'),
+  exportStartPage: document.getElementById('export-start-page'),
+  exportEndPage: document.getElementById('export-end-page'),
+  exportRangeBtn: document.getElementById('export-range-btn'),
   logout: document.getElementById('logout'),
   viewGrid: document.getElementById('view-grid'),
   viewList: document.getElementById('view-list'),
@@ -98,6 +101,25 @@ function jumpPage(target) {
     page = nextPageNum;
     load();
   }
+}
+
+async function exportPageRange(startPage, endPage) {
+  const totalPages = Math.max(1, Math.ceil(lastCount / PAGE_SIZE));
+  const start = Math.max(1, Math.min(totalPages, Number(startPage || 1)));
+  const end = Math.max(start, Math.min(totalPages, Number(endPage || start)));
+  const all = [];
+  for (let p = start; p <= end; p++) {
+    const params = { page: p, size: PAGE_SIZE };
+    if (els.q?.value) params.q = els.q.value.trim();
+    if (els.domainFilter?.value) params.domain = els.domainFilter.value;
+    if (els.loginFilter?.value) params.login = els.loginFilter.value;
+    if (els.favoriteFilter?.value) params.favorite = els.favoriteFilter.value;
+    if (els.forwardFilter?.value) params.forward = els.forwardFilter.value;
+    const data = await fetchMailboxes(params);
+    const list = Array.isArray(data) ? data : (data.list || []);
+    all.push(...list.map(m => m.address).filter(Boolean));
+  }
+  exportAddresses(all, `mailboxes-pages-${start}-to-${end}.txt`);
 }
 
 // 加载邮箱列表
@@ -758,3 +780,12 @@ els.next?.addEventListener('click', () => { const totalPages = Math.max(1, Math.
 els.pageJumpBtn?.addEventListener('click', () => jumpPage(Number(els.pageJumpInput?.value || 1)));
 els.pageJumpInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') jumpPage(Number(els.pageJumpInput?.value || 1)); });
 els.exportPage?.addEventListener('click', () => exportAddresses(currentData.map(m => m.address).filter(Boolean), `mailboxes-page-${page}.txt`));
+
+els.exportRangeBtn?.addEventListener('click', async () => {
+  try {
+    await exportPageRange(Number(els.exportStartPage?.value || page), Number(els.exportEndPage?.value || page));
+  } catch (e) {
+    console.error('导出范围失败:', e);
+    showToast('导出范围失败', 'error');
+  }
+});
