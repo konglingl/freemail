@@ -12,11 +12,13 @@ database_id = "PLACEHOLDER_D1_ID" # 部署时由环境变量或 CI 注入真实 
 # 环境变量
 [vars]
 ADMIN_NAME = "admin"
-MAIL_DOMAIN = "959298.xyz,bura25.959298.xyz,esgfse.959298.xyz,tj56.959298.xyz,95d6rg.959298.xyz,dsg3.959298.xyz,q9gb6.959298.xyz,mxg9.959298.xyz,3195.959298.xyz,cxg95.959298.xyz,rgs62.959298.xyz"
+# 注意：MAIL_DOMAIN 不要包含根域名 959298.xyz——包含根域名会让 seedMailDomainsFromEnv
+# 每小时把无 DNS 的镜像子域名播种进 mail_domains（死域名污染）
+MAIL_DOMAIN = "bura25.959298.xyz,esgfse.959298.xyz,tj56.959298.xyz,95d6rg.959298.xyz,dsg3.959298.xyz,q9gb6.959298.xyz,mxg9.959298.xyz,3195.959298.xyz,cxg95.959298.xyz,rgs62.959298.xyz"
 ROOT_MAIL_ZONE = "959298.xyz"
 AUTO_ROTATION_ENABLED = "false"
 AUTO_DOMAIN_PREFIX = "auto"
-# CF_ZONE_ID = "your_zone_id"
+CF_ZONE_ID = "fe2cbeb905651c347905277cd3b0a5e6" # 959298.xyz zone（域名轮换/恢复功能建 DNS 用）
 # CF_API_TOKEN 请使用 wrangler secret put CF_API_TOKEN
 # FORWARD_RULES="[{"prefix":"vip","email":"a@example.com"},{"prefix":"*","email":"2141083706@qq.com"}]"
 

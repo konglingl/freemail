@@ -26,6 +26,8 @@ function buildRotatingLabel(domain, windowKey) {
 function expandDomainWithRotatingMirror(domain, env) {
   const normalized = String(domain || '').trim().toLowerCase();
   if (!normalized) return [];
+  // 轮换关闭时镜像域名不会被创建 DNS，收不到邮件，不应出现在可选列表里
+  if (!getAutoRotationEnabled(env)) return [normalized];
   const label = buildRotatingLabel(normalized, getRotationWindowKey(env));
   return [normalized, `${label}.${normalized}`];
 }
